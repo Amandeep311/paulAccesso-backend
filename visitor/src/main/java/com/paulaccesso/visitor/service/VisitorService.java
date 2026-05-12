@@ -40,7 +40,6 @@ public class VisitorService {
         User registeredBy = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        // Find employee by empId
         User employee = userRepository.findEmployeeByEmpId(request.getPersonToMeetEmpId())
                 .orElseThrow(
                         () -> new RuntimeException("Employee not found with EmpId: " + request.getPersonToMeetEmpId()));
@@ -55,7 +54,11 @@ public class VisitorService {
         visitor.setPurpose(request.getPurpose());
         visitor.setPhoto(request.getPhoto());
         visitor.setIdProof(request.getIdProof());
-        visitor.setCheckInTime(LocalDateTime.now());
+
+        // ✅ Force IST timezone
+        ZonedDateTime istNow = ZonedDateTime.now(ZoneId.of("Asia/Kolkata"));
+        visitor.setCheckInTime(istNow.toLocalDateTime());
+
         visitor.setActive(true);
         visitor.setMeetingStatus(MeetingStatus.PENDING);
         visitor.setUser(registeredBy);
@@ -64,12 +67,10 @@ public class VisitorService {
             TagNumber tagNumber = tagNumberRepository.findByTagNumber(request.getTagNumber())
                     .orElseThrow(() -> new RuntimeException("Tag number not found"));
 
-            // Check if tag is available
             if (!tagNumber.isAvailable()) {
                 throw new RuntimeException("Tag number is already assigned to another visitor");
             }
 
-            // ✅ Additional safety check - ensure no active visitor has this tag
             Visitor existingVisitor = visitorRepository.findActiveVisitorByTagNumber(request.getTagNumber());
             if (existingVisitor != null) {
                 throw new RuntimeException(
@@ -81,9 +82,8 @@ public class VisitorService {
         }
 
         Visitor savedVisitor = visitorRepository.save(visitor);
-        log.info("Visitor registered: {} by {}", savedVisitor.getName(), registeredBy.getEmail());
+        log.info("Visitor registered: {} by {} at {}", savedVisitor.getName(), registeredBy.getEmail(), istNow);
 
-        // Send email to employee
         sendMeetingRequestToEmployee(employee, savedVisitor);
 
         return mapToResponse(savedVisitor);
@@ -182,7 +182,9 @@ public class VisitorService {
         Visitor visitor = visitorRepository.findById(visitorId)
                 .orElseThrow(() -> new RuntimeException("Visitor not found"));
 
-        visitor.setCheckOutTime(LocalDateTime.now());
+        // ✅ Force IST timezone for checkout
+        ZonedDateTime istNow = ZonedDateTime.now(ZoneId.of("Asia/Kolkata"));
+        visitor.setCheckOutTime(istNow.toLocalDateTime());
         visitor.setActive(false);
 
         if (request != null && request.getCheckoutPhoto() != null) {
@@ -190,14 +192,14 @@ public class VisitorService {
         }
 
         if (visitor.getTagNumber() != null && !visitor.getTagNumber().isEmpty()) {
-            String tagNumber = visitor.getTagNumber(); // Store tag number before clearing
+            String tagNumber = visitor.getTagNumber();
             tagNumberRepository.releaseTag(tagNumber);
-            visitor.setTagNumber(null); // ✅ CRITICAL FIX: Clear the tag number from visitor record
+            visitor.setTagNumber(null);
             log.info("Tag {} released from visitor: {}", tagNumber, visitor.getName());
         }
 
         Visitor updatedVisitor = visitorRepository.save(visitor);
-        log.info("Visitor checked out: {}", visitorId);
+        log.info("Visitor checked out: {} at {}", visitorId, istNow);
 
         return mapToResponse(updatedVisitor);
     }

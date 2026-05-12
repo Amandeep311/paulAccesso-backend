@@ -14,12 +14,15 @@ public class VisitorApplication {
     public void init() {
         // Set default timezone to IST
         TimeZone.setDefault(TimeZone.getTimeZone("Asia/Kolkata"));
+        System.out.println("========================================");
+        System.out.println("Current Default Timezone: " + TimeZone.getDefault().getID());
+        System.out.println("========================================");
     }
     
     public static void main(String[] args) {
         SpringApplication.run(VisitorApplication.class, args);
         System.out.println("========================================");
-        System.out.println("Kuber!");
+        System.out.println("Successfully started VisitorApplication with IST timezone.");
         System.out.println("========================================");
     }
 }
